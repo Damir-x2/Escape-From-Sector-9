@@ -35,7 +35,18 @@ class GameView(arcade.View):
         self.player_list.draw()
 
     def on_update(self, delta_time):
-        self.player_list.update()
+        self.player_list.update(delta_time)
+
+        if self.player.left < 0:
+            self.player.left = 0
+        if self.player.right > self.window.width:
+            self.player.right = self.window.width
+
+        if self.player.bottom < 0:
+            self.player.bottom = 0
+        if self.player.top > self.window.height:
+            self.player.top = self.window.height
+
 
     def on_key_press(self, key, modifiers):
         if key == arcade.key.W:
