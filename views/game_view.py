@@ -2,6 +2,9 @@ import arcade
 from arcade.camera import Camera2D
 from sprites.player import Player
 
+SCREEN_WIDTH = 800
+SCREEN_HEIGHT = 600
+
 WORLD_WIDTH = 2000
 WORLD_HEIGHT = 2000
 
@@ -11,69 +14,83 @@ class GameView(arcade.View):
         super().__init__()
 
         self.player_list = arcade.SpriteList()
+        self.wall_list = arcade.SpriteList()
         self.player = None
+
         self.camera = Camera2D()
+
+        self.physics_engine = None
 
     def on_show_view(self):
         arcade.set_background_color(arcade.color.DARK_SLATE_GRAY)
         self.setup()
-        self.center_camera_to_player()
 
     def setup(self):
         self.player_list = arcade.SpriteList()
+        self.wall_list = arcade.SpriteList()
 
         self.player = Player()
-        self.player.center_x = WORLD_WIDTH // 2
-        self.player.center_y = WORLD_HEIGHT // 2
-
+        self.player.center_x = 100
+        self.player.center_y = 100
         self.player_list.append(self.player)
 
-    def on_draw(self):
-        self.clear()
+        # СТЕНЫ
+        self.create_walls()
 
-        self.camera.activate()
-
-        arcade.draw_text(
-            "GAME VIEW",
-            20,
-            WORLD_HEIGHT - 40,
-            arcade.color.WHITE,
-            20
+        # ФИЗИКА
+        self.physics_engine = arcade.PhysicsEngineSimple(
+            self.player,
+            self.wall_list
         )
-
-        self.player_list.draw()
-
-    def on_update(self, delta_time):
-        self.player_list.update(delta_time)
-
-        if self.player.left < 0:
-            self.player.left = 0
-        if self.player.right > WORLD_WIDTH:
-            self.player.right = WORLD_WIDTH
-
-        if self.player.bottom < 0:
-            self.player.bottom = 0
-        if self.player.top > WORLD_HEIGHT:
-            self.player.top = WORLD_HEIGHT
 
         self.center_camera_to_player()
 
-    def center_camera_to_player(self):
-        camera_x = max(
-            0,
-            min(
-                self.player.center_x - self.window.width / 2,
-                WORLD_WIDTH - self.window.width
-            )
-        )
+    def create_walls(self):
+        thickness = 40
 
-        camera_y = max(
-            0,
-            min(
-                self.player.center_y - self.window.height / 2,
-                WORLD_HEIGHT - self.window.height
-            )
-        )
+        wall = arcade.SpriteSolidColor(WORLD_WIDTH, thickness, arcade.color.GRAY)
+        wall.center_x = WORLD_WIDTH // 2
+        wall.center_y = thickness // 2
+        self.wall_list.append(wall)
+
+        wall = arcade.SpriteSolidColor(WORLD_WIDTH, thickness, arcade.color.GRAY)
+        wall.center_x = WORLD_WIDTH // 2
+        wall.center_y = WORLD_HEIGHT - thickness // 2
+        self.wall_list.append(wall)
+
+        wall = arcade.SpriteSolidColor(thickness, WORLD_HEIGHT, arcade.color.GRAY)
+        wall.center_x = thickness // 2
+        wall.center_y = WORLD_HEIGHT // 2
+        self.wall_list.append(wall)
+
+        wall = arcade.SpriteSolidColor(thickness, WORLD_HEIGHT, arcade.color.GRAY)
+        wall.center_x = WORLD_WIDTH - thickness // 2
+        wall.center_y = WORLD_HEIGHT // 2
+        self.wall_list.append(wall)
+
+        for x in range(400, 1600, 200):
+            wall = arcade.SpriteSolidColor(40, 200, arcade.color.RED)
+            wall.center_x = x
+            wall.center_y = 800
+            self.wall_list.append(wall)
+
+    def on_draw(self):
+        self.clear()
+        self.camera.activate()
+
+        self.wall_list.draw()
+        self.player_list.draw()
+
+    def on_update(self, delta_time):
+        self.physics_engine.update()
+        self.center_camera_to_player()
+
+    def center_camera_to_player(self):
+        camera_x = self.player.center_x - SCREEN_WIDTH / 2
+        camera_y = self.player.center_y - SCREEN_HEIGHT / 2
+
+        camera_x = max(0, min(camera_x, WORLD_WIDTH - SCREEN_WIDTH))
+        camera_y = max(0, min(camera_y, WORLD_HEIGHT - SCREEN_HEIGHT))
 
         self.camera.position = (camera_x, camera_y)
 
