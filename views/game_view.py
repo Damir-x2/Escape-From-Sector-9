@@ -1,6 +1,8 @@
 import arcade
 from arcade.camera import Camera2D
+
 from sprites.player import Player
+from sprites.enemy import Enemy
 
 SCREEN_WIDTH = 800
 SCREEN_HEIGHT = 600
@@ -14,9 +16,10 @@ class GameView(arcade.View):
         super().__init__()
 
         self.player_list = arcade.SpriteList()
+        self.enemy_list = arcade.SpriteList()
         self.wall_list = arcade.SpriteList()
-        self.player = None
 
+        self.player = None
         self.camera = Camera2D()
 
         self.physics_engine = None
@@ -26,66 +29,92 @@ class GameView(arcade.View):
         self.setup()
 
     def setup(self):
-        self.player_list = arcade.SpriteList()
-        self.wall_list = arcade.SpriteList()
+        self.player_list.clear()
+        self.enemy_list.clear()
+        self.wall_list.clear()
 
+        # === ИГРОК ===
         self.player = Player()
-        self.player.center_x = 100
-        self.player.center_y = 100
+        self.player.center_x = 200
+        self.player.center_y = 200
         self.player_list.append(self.player)
 
-        # СТЕНЫ
+        # === СТЕНЫ ===
         self.create_walls()
 
-        # ФИЗИКА
+        # === ВРАГИ ===
+        self.create_enemies()
+
+        # === ФИЗИКА ===
         self.physics_engine = arcade.PhysicsEngineSimple(
             self.player,
             self.wall_list
         )
 
-        self.center_camera_to_player()
+        self.update_camera()
 
     def create_walls(self):
         thickness = 40
 
-        wall = arcade.SpriteSolidColor(WORLD_WIDTH, thickness, arcade.color.GRAY)
-        wall.center_x = WORLD_WIDTH // 2
-        wall.center_y = thickness // 2
-        self.wall_list.append(wall)
+        walls = [
+            (WORLD_WIDTH, thickness, WORLD_WIDTH // 2, thickness // 2),
+            (WORLD_WIDTH, thickness, WORLD_WIDTH // 2, WORLD_HEIGHT - thickness // 2),
+            (thickness, WORLD_HEIGHT, thickness // 2, WORLD_HEIGHT // 2),
+            (thickness, WORLD_HEIGHT, WORLD_WIDTH - thickness // 2, WORLD_HEIGHT // 2),
+        ]
 
-        wall = arcade.SpriteSolidColor(WORLD_WIDTH, thickness, arcade.color.GRAY)
-        wall.center_x = WORLD_WIDTH // 2
-        wall.center_y = WORLD_HEIGHT - thickness // 2
-        self.wall_list.append(wall)
-
-        wall = arcade.SpriteSolidColor(thickness, WORLD_HEIGHT, arcade.color.GRAY)
-        wall.center_x = thickness // 2
-        wall.center_y = WORLD_HEIGHT // 2
-        self.wall_list.append(wall)
-
-        wall = arcade.SpriteSolidColor(thickness, WORLD_HEIGHT, arcade.color.GRAY)
-        wall.center_x = WORLD_WIDTH - thickness // 2
-        wall.center_y = WORLD_HEIGHT // 2
-        self.wall_list.append(wall)
-
-        for x in range(400, 1600, 200):
-            wall = arcade.SpriteSolidColor(40, 200, arcade.color.RED)
+        for w, h, x, y in walls:
+            wall = arcade.SpriteSolidColor(w, h, arcade.color.GRAY)
             wall.center_x = x
-            wall.center_y = 800
+            wall.center_y = y
             self.wall_list.append(wall)
+
+    def create_enemies(self):
+        enemy = Enemy(
+            x=600,
+            y=400,
+            left_bound=500,
+            right_bound=900
+        )
+        self.enemy_list.append(enemy)
 
     def on_draw(self):
         self.clear()
         self.camera.activate()
 
         self.wall_list.draw()
+        self.enemy_list.draw()
         self.player_list.draw()
+
+        self.draw_ui()
+
+    def draw_ui(self):
+        arcade.draw_text(
+            f"HP: {self.player.health}",
+            10,
+            SCREEN_HEIGHT - 30,
+            arcade.color.RED_DEVIL,
+            16
+        )
 
     def on_update(self, delta_time):
         self.physics_engine.update()
-        self.center_camera_to_player()
+        self.enemy_list.update(delta_time)
 
-    def center_camera_to_player(self):
+        self.check_enemy_collision()
+        self.update_camera()
+
+    def check_enemy_collision(self):
+        hits = arcade.check_for_collision_with_list(
+            self.player, self.enemy_list
+        )
+
+        if hits:
+            self.player.health -= 1
+            self.player.center_x -= self.player.change_x * 5
+            self.player.center_y -= self.player.change_y * 5
+
+    def update_camera(self):
         camera_x = self.player.center_x - SCREEN_WIDTH / 2
         camera_y = self.player.center_y - SCREEN_HEIGHT / 2
 
