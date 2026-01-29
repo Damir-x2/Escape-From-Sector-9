@@ -3,6 +3,7 @@ from arcade.camera import Camera2D
 
 from sprites.player import Player
 from sprites.enemy import Enemy
+from sprites.bullet import Bullet
 
 SCREEN_WIDTH = 800
 SCREEN_HEIGHT = 600
@@ -18,6 +19,8 @@ class GameView(arcade.View):
         self.player_list = arcade.SpriteList()
         self.enemy_list = arcade.SpriteList()
         self.wall_list = arcade.SpriteList()
+        self.bullet_list = arcade.SpriteList()
+
 
         self.player = None
         self.camera = Camera2D()
@@ -38,6 +41,8 @@ class GameView(arcade.View):
         self.player.center_x = 200
         self.player.center_y = 200
         self.player_list.append(self.player)
+        self.bullet_list.clear()
+
 
         # === СТЕНЫ ===
         self.create_walls()
@@ -69,37 +74,29 @@ class GameView(arcade.View):
             wall.center_y = y
             self.wall_list.append(wall)
 
-    def create_enemies(self):
-        enemy = Enemy(
-            x=600,
-            y=400,
-            left_bound=500,
-            right_bound=900
-        )
-        self.enemy_list.append(enemy)
-
     def on_draw(self):
         self.clear()
-        self.camera.activate()
 
-        self.wall_list.draw()
-        self.enemy_list.draw()
-        self.player_list.draw()
+        with self.camera.activate():
+            self.wall_list.draw()
+            self.enemy_list.draw()
+            self.player_list.draw()
+            self.bullet_list.draw()
 
-        self.draw_ui()
-
-    def draw_ui(self):
         arcade.draw_text(
             f"HP: {self.player.health}",
             10,
             SCREEN_HEIGHT - 30,
-            arcade.color.RED_DEVIL,
+            arcade.color.RED,
             16
         )
 
     def on_update(self, delta_time):
         self.physics_engine.update()
         self.enemy_list.update(delta_time)
+        self.bullet_list.update(delta_time)
+        self.check_bullet_hits()
+
 
         self.check_enemy_collision()
         self.update_camera()
@@ -124,7 +121,16 @@ class GameView(arcade.View):
         self.camera.position = (camera_x, camera_y)
 
     def on_key_press(self, key, modifiers):
-        if key == arcade.key.W:
+        if key == arcade.key.SPACE:
+            bullet = Bullet(
+                self.player.center_x,
+                self.player.center_y,
+                self.player.facing_x,
+                self.player.facing_y
+            )
+            self.bullet_list.append(bullet)
+
+        elif key == arcade.key.W:
             self.player.change_y = self.player.speed
         elif key == arcade.key.S:
             self.player.change_y = -self.player.speed
@@ -133,8 +139,31 @@ class GameView(arcade.View):
         elif key == arcade.key.D:
             self.player.change_x = self.player.speed
 
+
     def on_key_release(self, key, modifiers):
         if key in (arcade.key.A, arcade.key.D):
             self.player.change_x = 0
         elif key in (arcade.key.W, arcade.key.S):
             self.player.change_y = 0
+    
+    def create_enemies(self):
+        positions = [
+            (600, 400, 500, 900),
+            (1200, 700, 1100, 1500),
+            (900, 1200, 800, 1200),
+        ]
+
+        for x, y, left, right in positions:
+            self.enemy_list.append(Enemy(x, y, left, right))
+
+    def check_bullet_hits(self):
+        for bullet in self.bullet_list:
+            hit_list = arcade.check_for_collision_with_list(
+                bullet, self.enemy_list
+            )
+
+            if hit_list:
+                bullet.remove_from_sprite_lists()
+                for enemy in hit_list:
+                    enemy.remove_from_sprite_lists()
+
