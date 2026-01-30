@@ -139,8 +139,8 @@ class GameView(arcade.View):
                 bullet.remove_from_sprite_lists()
                 for enemy in hit_list:
                     enemy.health -= 1
-                    if enemy.health <= 0:
-                        enemy.remove_from_sprite_lists()
+                    if enemy.health <= 0 and not enemy.dead:
+                        enemy.die()
 
     def update_camera(self):
         camera_x = self.player.center_x - SCREEN_WIDTH / 2
