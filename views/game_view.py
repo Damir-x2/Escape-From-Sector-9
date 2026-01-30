@@ -4,13 +4,20 @@ from arcade.camera import Camera2D
 from sprites.player import Player
 from sprites.enemy import Enemy
 from sprites.bullet import Bullet
+from sprites.particle import Particle
 
 
-SCREEN_WIDTH = 800
-SCREEN_HEIGHT = 600
+SCREEN_WIDTH = 1280
+SCREEN_HEIGHT = 720
 
-WORLD_WIDTH = 2000
-WORLD_HEIGHT = 2000
+TILE_SIZE = 50
+
+WORLD_COLS = 40
+WORLD_ROWS = 30
+
+WORLD_WIDTH = WORLD_COLS * TILE_SIZE
+WORLD_HEIGHT = WORLD_ROWS * TILE_SIZE
+
 
 
 class GameView(arcade.View):
@@ -21,6 +28,8 @@ class GameView(arcade.View):
         self.enemy_list = arcade.SpriteList()
         self.wall_list = arcade.SpriteList()
         self.bullet_list = arcade.SpriteList()
+        self.particle_list = arcade.SpriteList()
+
 
         self.player: Player | None = None
         self.camera = Camera2D()
@@ -36,11 +45,12 @@ class GameView(arcade.View):
         self.enemy_list.clear()
         self.wall_list.clear()
         self.bullet_list.clear()
+        self.particle_list.clear()
 
         # === ИГРОК ===
         self.player = Player()
-        self.player.center_x = 200
-        self.player.center_y = 200
+        self.player.center_x = TILE_SIZE * 1.5
+        self.player.center_y = TILE_SIZE * 1.5
         self.player_list.append(self.player)
 
         # === СТЕНЫ ===
@@ -58,31 +68,65 @@ class GameView(arcade.View):
         self.update_camera()
 
     def create_walls(self):
-        thickness = 40
-
-        walls = [
-            (WORLD_WIDTH, thickness, WORLD_WIDTH // 2, thickness // 2),
-            (WORLD_WIDTH, thickness, WORLD_WIDTH // 2, WORLD_HEIGHT - thickness // 2),
-            (thickness, WORLD_HEIGHT, thickness // 2, WORLD_HEIGHT // 2),
-            (thickness, WORLD_HEIGHT, WORLD_WIDTH - thickness // 2, WORLD_HEIGHT // 2),
+        maze = [
+            "111111111111111111111111111111",
+            "100000000000000000000000000001",
+            "101111011111011111011111011101",
+            "100001000001000001000001000001",
+            "111101111101111101111101111101",
+            "100000000000000000000000000001",
+            "101111111111111011111111111101",
+            "100000000000001000000000000001",
+            "111111111111101111111111111101",
+            "100000000000000000000000000001",
+            "101111011111011111011111011101",
+            "100001000001000001000001000001",
+            "111101111101111101111101111101",
+            "100000000000000000000000000001",
+            "101111111111111111111111111101",
+            "100000000000000000000000000001",
+            "101111011111011111011111011101",
+            "100001000001000001000001000001",
+            "100000000000000000000000000001",
+            "111111111111111111111111111111",
         ]
 
-        for w, h, x, y in walls:
-            wall = arcade.SpriteSolidColor(w, h, arcade.color.GRAY)
-            wall.center_x = x
-            wall.center_y = y
-            self.wall_list.append(wall)
+        for row_index, row in enumerate(maze):
+            for col_index, cell in enumerate(row):
+                if cell == "1":
+                    wall = arcade.SpriteSolidColor(
+                        TILE_SIZE,
+                        TILE_SIZE,
+                        arcade.color.DARK_GRAY
+                    )
+
+                    wall.center_x = col_index * TILE_SIZE + TILE_SIZE / 2
+                    wall.center_y = row_index * TILE_SIZE + TILE_SIZE / 2
+
+                    self.wall_list.append(wall)
 
     def create_enemies(self):
-        positions = [
-            (600, 400, 500, 900),
-            (1200, 700, 1100, 1500),
-            (900, 1200, 800, 1200),
+        enemy_positions = [
+            (3, 2),
+            (7, 3),
+            (10, 5),
+            (5, 6),
+            (9, 2),
         ]
 
-        for x, y, left, right in positions:
-            enemy = Enemy(x, y, left, right)
+        for col, row in enemy_positions:
+            x = col * TILE_SIZE + TILE_SIZE / 2
+            y = row * TILE_SIZE + TILE_SIZE / 2
+
+            enemy = Enemy(
+                x=x,
+                y=y,
+                left=x - 40,
+                right=x + 40
+            )
+
             self.enemy_list.append(enemy)
+
 
     def on_draw(self):
         self.clear()
@@ -92,7 +136,10 @@ class GameView(arcade.View):
             self.wall_list.draw()
             self.enemy_list.draw()
             self.bullet_list.draw()
+            self.particle_list.draw()
             self.player.draw()
+
+            
 
         # === UI (БЕЗ камеры) ===
         arcade.draw_text(
@@ -114,6 +161,7 @@ class GameView(arcade.View):
 
         self.check_enemy_collision()
         self.check_bullet_hits()
+        self.particle_list.update()
         self.update_camera()
 
 
@@ -137,19 +185,24 @@ class GameView(arcade.View):
 
             if hit_list:
                 bullet.remove_from_sprite_lists()
+
                 for enemy in hit_list:
                     enemy.health -= 1
+
                     if enemy.health <= 0 and not enemy.dead:
                         enemy.die()
 
+                        for _ in range(20):
+                            particle = Particle(enemy.center_x, enemy.center_y)
+                            self.particle_list.append(particle)
+
+
     def update_camera(self):
-        camera_x = self.player.center_x - SCREEN_WIDTH / 2
-        camera_y = self.player.center_y - SCREEN_HEIGHT / 2
+        self.camera.position = (
+            SCREEN_WIDTH / 2,
+            SCREEN_HEIGHT / 2
+        )
 
-        camera_x = max(0, min(camera_x, WORLD_WIDTH - SCREEN_WIDTH))
-        camera_y = max(0, min(camera_y, WORLD_HEIGHT - SCREEN_HEIGHT))
-
-        self.camera.position = (camera_x, camera_y)
 
     def on_key_press(self, key, modifiers):
         if key == arcade.key.SPACE:
