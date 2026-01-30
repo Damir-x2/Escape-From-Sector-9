@@ -15,9 +15,6 @@ TILE_SIZE = 50
 WORLD_COLS = 40
 WORLD_ROWS = 30
 
-WORLD_WIDTH = WORLD_COLS * TILE_SIZE
-WORLD_HEIGHT = WORLD_ROWS * TILE_SIZE
-
 
 
 class GameView(arcade.View):
@@ -29,6 +26,12 @@ class GameView(arcade.View):
         self.wall_list = arcade.SpriteList()
         self.bullet_list = arcade.SpriteList()
         self.particle_list = arcade.SpriteList()
+
+        self.camera_lock_x = False
+        self.camera_lock_y = False
+
+        self.last_player_x = 0
+        self.last_player_y = 0  
 
 
         self.player: Player | None = None
@@ -52,6 +55,16 @@ class GameView(arcade.View):
         self.player.center_x = TILE_SIZE * 1.5
         self.player.center_y = TILE_SIZE * 1.5
         self.player_list.append(self.player)
+        self.camera_lock_x = False
+        self.camera_lock_y = False
+
+        self.last_player_x = self.player.center_x
+        self.last_player_y = self.player.center_y
+        self.camera_offset_x = SCREEN_WIDTH / 2
+        self.camera_offset_y = SCREEN_HEIGHT / 2
+
+
+
 
         # === СТЕНЫ ===
         self.create_walls()
@@ -64,6 +77,10 @@ class GameView(arcade.View):
             self.player,
             self.wall_list
         )
+        self.enemy_physics = [
+            arcade.PhysicsEngineSimple(enemy, self.wall_list)
+            for enemy in self.enemy_list
+        ]
 
         self.update_camera()
 
@@ -106,12 +123,26 @@ class GameView(arcade.View):
                     self.wall_list.append(wall)
 
     def create_enemies(self):
+        # Столбец, строка
         enemy_positions = [
-            (3, 2),
-            (7, 3),
-            (10, 5),
-            (5, 6),
-            (9, 2),
+            # Столбец, строка
+            (2, 1), (5, 11), (23, 1), (26, 1),
+
+            (9, 3), (12, 3), (15, 3), (18, 3), (21, 3), (24, 3),
+
+            (2, 5), (5, 5), (8, 5), (11, 5),(26, 5),
+
+            (3, 7), (7, 7), (11, 7), (15, 7), (19, 7), (23, 7),
+
+            (2, 9), (20, 9), (23, 9), (26, 9),
+
+            (3, 11), (6, 11), (9, 11), (12, 11), (24, 11),
+
+            (2, 13), (6, 13), (10, 13), (14, 13), (18, 13), (22, 13), (26, 13),
+
+            (11, 15), (15, 15), (19, 15), (23, 15),
+
+            (5, 17), (10, 17),
         ]
 
         for col, row in enemy_positions:
@@ -131,24 +162,22 @@ class GameView(arcade.View):
     def on_draw(self):
         self.clear()
 
-        # === МИР (камера) ===
         with self.camera.activate():
             self.wall_list.draw()
-            self.enemy_list.draw()
-            self.bullet_list.draw()
-            self.particle_list.draw()
             self.player.draw()
+            self.bullet_list.draw()
+            self.enemy_list.draw()
+            self.particle_list.draw()
 
-            
-
-        # === UI (БЕЗ камеры) ===
         arcade.draw_text(
             f"HP: {self.player.health}",
             10,
             SCREEN_HEIGHT - 30,
+
             arcade.color.RED,
             16
         )
+
 
 
     def on_update(self, delta_time):
@@ -162,6 +191,10 @@ class GameView(arcade.View):
         self.check_enemy_collision()
         self.check_bullet_hits()
         self.particle_list.update()
+
+        for engine in self.enemy_physics:
+            engine.update()
+
         self.update_camera()
 
 
@@ -170,7 +203,6 @@ class GameView(arcade.View):
         for enemy in self.enemy_list:
             if arcade.check_for_collision(self.player, enemy):
                 self.player.health -= 1
-                print("HIT! HP =", self.player.health)
 
 
 
@@ -196,12 +228,39 @@ class GameView(arcade.View):
                             particle = Particle(enemy.center_x, enemy.center_y)
                             self.particle_list.append(particle)
 
+            if arcade.check_for_collision_with_list(bullet, self.wall_list):
+                bullet.remove_from_sprite_lists()
+
 
     def update_camera(self):
-        self.camera.position = (
-            SCREEN_WIDTH / 2,
-            SCREEN_HEIGHT / 2
-        )
+        cam_x, cam_y = self.camera.position
+        
+        cam_center_x = 600
+        cam_center_y = 360
+
+        if not self.camera_lock_x:
+            if self.player.center_x >= cam_center_x:
+                cam_x = cam_center_x
+                self.camera_lock_x = True
+                self.last_player_x = self.player.center_x
+        else:
+            dx = self.player.center_x - self.last_player_x
+            cam_x += dx
+            self.last_player_x = self.player.center_x
+
+        if not self.camera_lock_y:
+            if self.player.center_y >= cam_center_y:
+                cam_y = cam_center_y
+                self.camera_lock_y = True
+                self.last_player_y = self.player.center_y
+        else:
+            dy = self.player.center_y - self.last_player_y
+            cam_y += dy
+            self.last_player_y = self.player.center_y
+
+
+        self.camera.position = (cam_x, cam_y)
+
 
 
     def on_key_press(self, key, modifiers):

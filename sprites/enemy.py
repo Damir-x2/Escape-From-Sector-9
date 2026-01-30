@@ -1,4 +1,6 @@
 import arcade
+import random
+import math
 
 
 class Enemy(arcade.Sprite):
@@ -12,33 +14,47 @@ class Enemy(arcade.Sprite):
         self.center_x = x
         self.center_y = y
 
-        self.left_bound = left
-        self.right_bound = right
-
-        self.change_x = 2
         self.health = 3
-
         self.dead = False
-        self.death_timer = 0.0
+
+        self.speed = random.uniform(1.0, 2.5)
+
+        self.change_x = 0
+        self.change_y = 0
+
+        self.move_timer = 0.0
+        self.move_interval = random.uniform(0.8, 2.5)
+
+        self.pick_new_direction()
+
+    def pick_new_direction(self):
+        directions = [
+            (1, 0), (-1, 0),
+            (0, 1), (0, -1),
+            (0, 0),
+        ]
+
+        dx, dy = random.choice(directions)
+
+        self.change_x = dx * self.speed
+        self.change_y = dy * self.speed
 
     def update(self, delta_time: float = 1 / 60):
         if self.dead:
-            self.death_timer += delta_time
-
-            # анимация смерти
-            self.alpha = max(0, self.alpha - 15)
-            self.width *= 0.9
-            self.height *= 0.9
-
-            if self.death_timer > 0.4:
-                self.remove_from_sprite_lists()
             return
 
-        self.center_x += self.change_x
+        self.move_timer += delta_time
 
-        if self.center_x < self.left_bound or self.center_x > self.right_bound:
-            self.change_x *= -1
+        if self.move_timer >= self.move_interval:
+            self.move_timer = 0
+            self.move_interval = random.uniform(0.8, 2.5)
+            self.pick_new_direction()
+
+        self.center_x += self.change_x
+        self.center_y += self.change_y
 
     def die(self):
         self.dead = True
         self.change_x = 0
+        self.change_y = 0
+        self.remove_from_sprite_lists()
