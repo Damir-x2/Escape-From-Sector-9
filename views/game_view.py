@@ -26,13 +26,15 @@ class GameView(arcade.View):
         self.wall_list = arcade.SpriteList()
         self.bullet_list = arcade.SpriteList()
         self.particle_list = arcade.SpriteList()
+        self.floor_list = arcade.SpriteList()
 
         self.camera_lock_x = False
         self.camera_lock_y = False
 
         self.last_player_x = 0
         self.last_player_y = 0  
-
+        self.is_dead = False
+        self.enemy_physics = []
 
         self.player: Player | None = None
         self.camera = Camera2D()
@@ -40,15 +42,22 @@ class GameView(arcade.View):
         self.physics_engine = None
 
     def on_show_view(self):
-        arcade.set_background_color(arcade.color.DARK_SLATE_GRAY)
+        arcade.set_background_color(arcade.color.BLACK)
         self.setup()
 
     def setup(self):
         self.player_list.clear()
         self.enemy_list.clear()
         self.wall_list.clear()
+        self.floor_list.clear()
         self.bullet_list.clear()
         self.particle_list.clear()
+
+        self.floor_texture = arcade.load_texture("assets/tiles/floor.png")
+        self.wall_texture = arcade.load_texture("assets/tiles/wall2.png")
+
+        # === СТЕНЫ И ПОЛ ===
+        self.create_walls()
 
         # === ИГРОК ===
         self.player = Player()
@@ -66,8 +75,10 @@ class GameView(arcade.View):
 
 
 
-        # === СТЕНЫ ===
+        # === СТЕНЫ И ПОЛ ===
         self.create_walls()
+        self.floor_texture = arcade.load_texture("assets/tiles/floor.png")
+        self.wall_texture = arcade.load_texture("assets/tiles/wall.png")
 
         # === ВРАГИ ===
         self.create_enemies()
@@ -108,20 +119,30 @@ class GameView(arcade.View):
             "111111111111111111111111111111",
         ]
 
+        scale = TILE_SIZE / self.floor_texture.width
+
         for row_index, row in enumerate(maze):
             for col_index, cell in enumerate(row):
+                x = col_index * TILE_SIZE + TILE_SIZE / 2
+                y = row_index * TILE_SIZE + TILE_SIZE / 2
+
+                # === ПОЛ ===
+                floor = arcade.Sprite()
+                floor.texture = self.floor_texture
+                floor.scale = scale
+                floor.center_x = x
+                floor.center_y = y
+                self.floor_list.append(floor)
+
+                # === СТЕНА ===
                 if cell == "1":
-                    wall = arcade.SpriteSolidColor(
-                        TILE_SIZE,
-                        TILE_SIZE,
-                        arcade.color.DARK_GRAY
-                    )
-
-                    wall.center_x = col_index * TILE_SIZE + TILE_SIZE / 2
-                    wall.center_y = row_index * TILE_SIZE + TILE_SIZE / 2
-
+                    wall = arcade.Sprite()
+                    wall.texture = self.wall_texture
+                    wall.scale = scale
+                    wall.center_x = x
+                    wall.center_y = y
                     self.wall_list.append(wall)
-
+                        
     def create_enemies(self):
         # Столбец, строка
         enemy_positions = [
@@ -161,21 +182,39 @@ class GameView(arcade.View):
 
     def on_draw(self):
         self.clear()
+        if self.is_dead:
+            arcade.draw_text(
+                "YOU DIED",
+                SCREEN_WIDTH // 2,
+                SCREEN_HEIGHT // 2 + 20,
+                arcade.color.RED,
+                40,
+                anchor_x="center"
+            )
+
+            arcade.draw_text(
+                "Returning to menu...",
+                SCREEN_WIDTH // 2,
+                SCREEN_HEIGHT // 2 - 30,
+                arcade.color.GRAY_BLUE,
+                20,
+                anchor_x="center"
+            )
+            return
 
         with self.camera.activate():
+            self.floor_list.draw()
             self.wall_list.draw()
-            self.player.draw()
-            self.bullet_list.draw()
             self.enemy_list.draw()
+            self.bullet_list.draw()
             self.particle_list.draw()
-
+            self.player.draw()
         arcade.draw_text(
             f"HP: {self.player.health}",
             10,
             SCREEN_HEIGHT - 30,
-
-            arcade.color.RED,
-            16
+            arcade.color.PALATINATE_PURPLE,
+            20
         )
 
 
@@ -194,6 +233,22 @@ class GameView(arcade.View):
 
         for engine in self.enemy_physics:
             engine.update()
+
+        if not self.is_dead and self.player.health <= 0:
+            self.is_dead = True
+            self.death_timer = 0
+            self.player.change_x = 0
+            self.player.change_y = 0
+        
+        if self.is_dead:
+            self.death_timer += delta_time
+
+            if self.death_timer >= 5:
+                from views.start_view import StartView
+                self.window.show_view(StartView())
+            return
+
+
 
         self.update_camera()
 
