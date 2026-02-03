@@ -41,6 +41,16 @@ class GameView(arcade.View):
 
         self.physics_engine = None
 
+        self.music = None
+
+        self.shoot_sound = arcade.load_sound("assets/sounds/shoot.wav")
+        self.player_die_sound = arcade.load_sound("assets/sounds/player_die.wav")
+        self.enemy_die_sound = arcade.load_sound("assets/sounds/enemy_die.wav")
+        self.music = arcade.Sound("assets/sounds/music.ogg", streaming=True)
+        self.music_player = None
+
+
+
     def on_show_view(self):
         arcade.set_background_color(arcade.color.BLACK)
         self.setup()
@@ -55,9 +65,6 @@ class GameView(arcade.View):
 
         self.floor_texture = arcade.load_texture("assets/tiles/floor.png")
         self.wall_texture = arcade.load_texture("assets/tiles/wall2.png")
-
-        # === СТЕНЫ И ПОЛ ===
-        self.create_walls()
 
         # === ИГРОК ===
         self.player = Player()
@@ -92,6 +99,13 @@ class GameView(arcade.View):
             arcade.PhysicsEngineSimple(enemy, self.wall_list)
             for enemy in self.enemy_list
         ]
+        # === ЗВУКИ ===
+        self.music_player = self.music.play(
+            volume=1,
+            loop=True
+        )
+
+
 
         self.update_camera()
 
@@ -233,12 +247,6 @@ class GameView(arcade.View):
 
         for engine in self.enemy_physics:
             engine.update()
-
-        if not self.is_dead and self.player.health <= 0:
-            self.is_dead = True
-            self.death_timer = 0
-            self.player.change_x = 0
-            self.player.change_y = 0
         
         if self.is_dead:
             self.death_timer += delta_time
@@ -248,6 +256,15 @@ class GameView(arcade.View):
                 self.window.show_view(StartView())
             return
 
+        if not self.is_dead and self.player.health <= 0:
+            self.is_dead = True
+            self.death_timer = 0
+
+            arcade.stop_sound(self.music_player)
+            arcade.play_sound(self.player_die_sound, volume=3)
+
+            self.player.change_x = 0
+            self.player.change_y = 0
 
 
         self.update_camera()
@@ -278,6 +295,7 @@ class GameView(arcade.View):
 
                     if enemy.health <= 0 and not enemy.dead:
                         enemy.die()
+                        arcade.play_sound(self.enemy_die_sound, volume=9)
 
                         for _ in range(20):
                             particle = Particle(enemy.center_x, enemy.center_y)
@@ -327,6 +345,16 @@ class GameView(arcade.View):
                 self.player.facing_y
             )
             self.bullet_list.append(bullet)
+            bullet = Bullet(
+                self.player.center_x,
+                self.player.center_y,
+                self.player.facing_x,
+                self.player.facing_y
+            )
+            self.bullet_list.append(bullet)
+
+            arcade.play_sound(self.shoot_sound, volume=0.6)
+
 
         elif key == arcade.key.W:
             self.player.change_y = self.player.speed
