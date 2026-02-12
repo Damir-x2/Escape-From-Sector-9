@@ -55,6 +55,12 @@ class GameView(arcade.View):
         arcade.set_background_color(arcade.color.BLACK)
         self.setup()
 
+    def get_sfx_volume(self):
+        return getattr(self.window, "settings", {}).get("sfx_volume", 0.6)
+
+    def get_music_volume(self):
+        return getattr(self.window, "settings", {}).get("music_volume", 0.5)
+
     def setup(self):
         self.player_list.clear()
         self.enemy_list.clear()
@@ -101,7 +107,7 @@ class GameView(arcade.View):
         ]
         # === ЗВУКИ ===
         self.music_player = self.music.play(
-            volume=1,
+            volume=self.get_music_volume(),
             loop=True
         )
 
@@ -261,7 +267,7 @@ class GameView(arcade.View):
             self.death_timer = 0
 
             arcade.stop_sound(self.music_player)
-            arcade.play_sound(self.player_die_sound, volume=3)
+            arcade.play_sound(self.player_die_sound, volume=self.get_sfx_volume())
 
             self.player.change_x = 0
             self.player.change_y = 0
@@ -295,7 +301,7 @@ class GameView(arcade.View):
 
                     if enemy.health <= 0 and not enemy.dead:
                         enemy.die()
-                        arcade.play_sound(self.enemy_die_sound, volume=9)
+                        arcade.play_sound(self.enemy_die_sound, volume=self.get_sfx_volume())
 
                         for _ in range(20):
                             particle = Particle(enemy.center_x, enemy.center_y)
@@ -353,7 +359,7 @@ class GameView(arcade.View):
             )
             self.bullet_list.append(bullet)
 
-            arcade.play_sound(self.shoot_sound, volume=0.6)
+            arcade.play_sound(self.shoot_sound, volume=self.get_sfx_volume())
 
 
         elif key == arcade.key.W:
